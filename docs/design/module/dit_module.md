@@ -486,7 +486,7 @@ class Attention(nn.Module):
 
 - **SageAttention** (`SAGE_ATTN`): Quantized attention implementation from the SageAttention library.
 
-- **AiterSageAttention** (`AITER_SAGE_FP8`): AITER SageAttention with FP8 quantization - ROCm only (gfx942/gfx950)
+- **AiterSageAttention** (`AITER_SAGE_FP8`): AITER SageAttention - ROCm only (gfx942/gfx950)
 
 These backends provide the **kernel implementations** for attention computation. For attention-level sequence parallelism strategies (Ring Attention, Ulysses), see [Parallel Attention](#52-parallel-attention).
 

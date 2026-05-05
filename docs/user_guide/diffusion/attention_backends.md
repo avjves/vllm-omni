@@ -18,7 +18,7 @@ If no attention backend is configured, vLLM-Omni asks the current platform to ch
 
 On ROCm (AMD GPUs), additional backend(s) are available:
 
-- `AITER_SAGE_FP8`: AITER SageAttention with FP8 quantization. Requires `aiter`. Only supported on ROCm (gfx942/gfx950).
+- `AITER_SAGE_FP8`: AITER SageAttention backend. Requires `aiter`. Only supported on ROCm (gfx942/gfx950).
 
 ## Backend Options
 
@@ -27,7 +27,7 @@ On ROCm (AMD GPUs), additional backend(s) are available:
 | `FLASH_ATTN` | Default when FlashAttention is available. On ROCm, uses `aiter`. |
 | `TORCH_SDPA` | Most conservative fallback. Useful for debugging or compatibility. |
 | `SAGE_ATTN` | Requires `sageattention`. Can improve performance on some workloads, but output quality must be validated model-by-model. |
-| `AITER_SAGE_FP8` | AITER SageAttention with FP8 quantization. Requires `aiter`. Only on ROCm (gfx942/gfx950). |
+| `AITER_SAGE_FP8` | Requires `aiter`. Only on ROCm (gfx942/gfx950). |
 
 ## Configuration
 

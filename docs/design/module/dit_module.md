@@ -486,6 +486,8 @@ class Attention(nn.Module):
 
 - **SageAttention** (`SAGE_ATTN`): Quantized attention implementation from the SageAttention library.
 
+- **AiterSageAttention** (`AITER_SAGE_FP8`): AITER SageAttention with FP8 quantization - ROCm only (gfx942/gfx950)
+
 These backends provide the **kernel implementations** for attention computation. For attention-level sequence parallelism strategies (Ring Attention, Ulysses), see [Parallel Attention](#52-parallel-attention).
 
 #### Backend Selection Mechanism
@@ -528,6 +530,8 @@ For the user-facing CLI surface, see [Diffusion Attention Backends](../../user_g
 - **FlashAttention**: Requires `flash-attn` on CUDA, `aiter` on ROCm, or `mindiesd` on Ascend NPU
 
 - **SageAttention**: Requires `sage-attention` package (from THU-ML GitHub)
+
+- **AiterSageAttention**: Requires `aiter` library (ROCm gfx942/gfx950 only)
 
 #### Attention Backend Registry
 

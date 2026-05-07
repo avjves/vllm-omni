@@ -148,6 +148,13 @@ class OmniPlatform(Platform):
             return nullcontext()
 
     @classmethod
+    def apply_vae_optimizations(cls, vae: nn.Module):
+        """
+        Apply platform-specific optimizations to VAE, if applicable.
+        """
+        pass
+
+    @classmethod
     def supports_cpu_offload(cls) -> bool:
         return True
 

@@ -104,6 +104,19 @@ class RocmOmniPlatform(OmniPlatform, RocmPlatform):
         return DiffusionAttentionBackendEnum.TORCH_SDPA.get_path()
 
     @classmethod
+    def apply_vae_optimizations(cls, vae: torch.nn.Module):
+        from vllm._aiter_ops import is_aiter_found_and_supported
+
+        if not is_aiter_found_and_supported():
+            return
+        try:
+            groupnorm_enabled = cls._replace_groupnorm_with_aiter(vae)
+            if groupnorm_enabled:
+                logger.info("AITER GroupNorm is enabled for VAE.")
+        except Exception:
+            logger.warning("Failed to apply AITER GroupNorm to VAE.")
+
+    @classmethod
     def supports_torch_inductor(cls) -> bool:
         return True
 
@@ -168,3 +181,32 @@ class RocmOmniPlatform(OmniPlatform, RocmPlatform):
             rms_norm = default
 
         return IrOpPriorityConfig.with_default(default, rms_norm=rms_norm)
+
+    @staticmethod
+    def _replace_groupnorm_with_aiter(module: torch.nn.Module) -> bool:
+        """
+        Replace all instances of nn.GroupNorm with AITER GroupNorm
+        """
+        from aiter.ops.groupnorm import GroupNorm as AiterGroupNorm
+
+        targets = [
+            (parent, name, child)
+            for parent in module.modules()
+            for name, child in parent.named_children()
+            if isinstance(child, torch.nn.GroupNorm) and child.affine
+        ]
+
+        for parent, name, child in targets:
+            new_group_norm = AiterGroupNorm(
+                num_groups=child.num_groups,
+                num_channels=child.num_channels,
+                eps=child.eps,
+                affine=True,
+                device=child.weight.device,
+                dtype=child.weight.dtype,
+            )
+            new_group_norm.weight = child.weight
+            new_group_norm.bias = child.bias
+            setattr(parent, name, new_group_norm)
+
+        return len(targets) > 0

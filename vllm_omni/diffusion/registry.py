@@ -321,6 +321,10 @@ def initialize_model(
             )
             od_config.vae_use_tiling = True
 
+        # Apply platform-specific optimizations to VAE
+        if hasattr(model, "vae"):
+            current_omni_platform.apply_vae_optimizations(model.vae)
+
         # Configure VAE memory optimization settings from config
         if hasattr(model, "vae") and hasattr(model.vae, "use_slicing"):
             model.vae.use_slicing = od_config.vae_use_slicing

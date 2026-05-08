@@ -111,20 +111,35 @@ class RotaryEmbedding(CustomOp):
         cos: torch.Tensor,
         sin: torch.Tensor,
     ) -> torch.Tensor:
-        if self.apply_rotary_emb_flash_attn is None:
-            return self.forward_cuda(x, cos, sin)
+        from aiter.ops.rope import rope_cached_fwd_impl
 
         if cos.dim() == 3:
             # (B, S, D/2) -> (S, D/2)
             cos = cos[0]
             sin = sin[0]
 
-        return self.apply_rotary_emb_flash_attn(
-            x,
-            cos,
-            sin,
-            interleaved=self.interleaved,
+        # aiter expects SBHD format; vllm-omni uses BSHD
+        x_sbhd = x.transpose(0, 1).contiguous()
+        output = torch.empty_like(x_sbhd)
+
+        # Reshape cos/sin from (S, D//2) to (S, 1, 1, D//2)
+        cos_4d = cos.unsqueeze(1).unsqueeze(1).contiguous()
+        sin_4d = sin.unsqueeze(1).unsqueeze(1).contiguous()
+
+        # interleaved (GPT-J) = rotate_style 1, non-interleaved (NEOX) = rotate_style 0
+        rotate_style = 1 if self.interleaved else 0
+
+        rope_cached_fwd_impl(
+            output,
+            x_sbhd,
+            cos_4d,
+            sin_4d,
+            rotate_style,
+            True,   # reuse_freqs_front_part: cos/sin is D//2 (half)
+            False,  # nope_first: rotate from the front
         )
+
+        return output.transpose(0, 1).contiguous()
 
     def forward_npu(
         self,

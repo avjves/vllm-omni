@@ -24,7 +24,7 @@ On ROCm (AMD GPUs), additional backend(s) are available:
 
 | Value | Notes |
 |---|---|
-| `FLASH_ATTN` | Default when FlashAttention is available. On ROCm, uses `aiter`. |
+| `FLASH_ATTN` | Default on CUDA when FlashAttention is available. Good default for most diffusion workloads. |
 | `TORCH_SDPA` | Most conservative fallback. Useful for debugging or compatibility. |
 | `SAGE_ATTN` | Requires `sageattention`. Can improve performance on some workloads, but output quality must be validated model-by-model. |
 | `AITER_SAGE_FP8` | Requires `aiter`. Only on ROCm (gfx942/gfx950). |

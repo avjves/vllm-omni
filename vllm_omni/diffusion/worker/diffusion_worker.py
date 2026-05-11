@@ -219,6 +219,8 @@ class DiffusionWorker:
         os.environ["RANK"] = str(rank)
         os.environ["WORLD_SIZE"] = str(world_size)
 
+        current_omni_platform.configure_diffusion_environment_defaults()
+
         # Setup device
         self.device = current_omni_platform.get_torch_device(rank)
         current_omni_platform.set_device(self.device)

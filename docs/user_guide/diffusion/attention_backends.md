@@ -16,6 +16,10 @@ On CUDA, the practical choices today are:
 
 If no attention backend is configured, vLLM-Omni asks the current platform to choose the default. On CUDA, that normally means `FLASH_ATTN` when available, otherwise `TORCH_SDPA`.
 
+On ROCm (AMD GPUs), additional backend(s) are available:
+
+- `AITER_SAGE_FP8`: AITER SageAttention backend. Requires `aiter`. Only supported on ROCm (gfx942/gfx950).
+
 ## Backend Options
 
 | Value | Notes |
@@ -23,6 +27,7 @@ If no attention backend is configured, vLLM-Omni asks the current platform to ch
 | `FLASH_ATTN` | Default on CUDA when FlashAttention is available. Good default for most diffusion workloads. |
 | `TORCH_SDPA` | Most conservative fallback. Useful for debugging or compatibility. |
 | `SAGE_ATTN` | Requires `sageattention`. Can improve performance on some workloads, but output quality must be validated model-by-model. |
+| `AITER_SAGE_FP8` | Requires `aiter`. Only on ROCm (gfx942/gfx950). |
 
 ## Configuration
 

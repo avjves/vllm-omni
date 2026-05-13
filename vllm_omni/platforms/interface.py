@@ -115,15 +115,6 @@ class OmniPlatform(Platform):
         return False
 
     @classmethod
-    def configure_diffusion_environment_defaults(cls) -> None:
-        """Apply platform-specific environment defaults for diffusion workers.
-
-        Called during diffusion worker initialization, before model loading.
-        Subclasses override to set env vars or other platform-specific config.
-        """
-        pass
-
-    @classmethod
     def get_diffusion_worker_cls(cls) -> str:
         """Get the diffusion worker class path for this platform.
 

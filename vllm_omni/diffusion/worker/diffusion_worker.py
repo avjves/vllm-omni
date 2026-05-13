@@ -219,7 +219,10 @@ class DiffusionWorker:
         os.environ["RANK"] = str(rank)
         os.environ["WORLD_SIZE"] = str(world_size)
 
-        current_omni_platform.configure_diffusion_environment_defaults()
+        # ROCm skinny GEMM kernels (wvSplitKrc) can fail on matrix shapes
+        # common in diffusion transformers.
+        if current_omni_platform.is_rocm():
+            os.environ.setdefault("VLLM_ROCM_USE_SKINNY_GEMM", "0")
 
         # Setup device
         self.device = current_omni_platform.get_torch_device(rank)

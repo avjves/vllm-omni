@@ -10,6 +10,7 @@ from vllm.platforms.rocm import RocmPlatform
 
 from vllm_omni.diffusion.attention.backends.registry import DiffusionAttentionBackendEnum
 from vllm_omni.platforms.interface import OmniPlatform, OmniPlatformEnum
+from vllm_omni.platforms.rocm.patch import apply_patches
 
 logger = init_logger(__name__)
 
@@ -50,6 +51,10 @@ class RocmOmniPlatform(OmniPlatform, RocmPlatform):
     """
 
     _omni_enum = OmniPlatformEnum.ROCM
+
+    def __init__(self):
+        super().__init__()
+        apply_patches()
 
     @classmethod
     def get_omni_ar_worker_cls(cls) -> str:
@@ -102,40 +107,6 @@ class RocmOmniPlatform(OmniPlatform, RocmPlatform):
 
         logger.debug("Defaulting to diffusion attention backend SDPA")
         return DiffusionAttentionBackendEnum.TORCH_SDPA.get_path()
-
-    @classmethod
-    def replace_vae_groupnorm_with_aiter(cls, vae: torch.nn.Module):
-        from vllm._aiter_ops import is_aiter_found_and_supported
-
-        if not is_aiter_found_and_supported():
-            return
-        try:
-            from aiter.ops.groupnorm import GroupNorm as AiterGroupNorm
-
-            targets = [
-                (parent, name, child)
-                for parent in vae.modules()
-                for name, child in parent.named_children()
-                if isinstance(child, torch.nn.GroupNorm) and child.affine
-            ]
-
-            for parent, name, child in targets:
-                new_group_norm = AiterGroupNorm(
-                    num_groups=child.num_groups,
-                    num_channels=child.num_channels,
-                    eps=child.eps,
-                    affine=True,
-                    device=child.weight.device,
-                    dtype=child.weight.dtype,
-                )
-                new_group_norm.weight = child.weight
-                new_group_norm.bias = child.bias
-                setattr(parent, name, new_group_norm)
-
-            if targets:
-                logger.info("AITER GroupNorm is enabled for VAE.")
-        except Exception:
-            logger.warning("Failed to apply AITER GroupNorm to VAE.")
 
     @classmethod
     def supports_torch_inductor(cls) -> bool:

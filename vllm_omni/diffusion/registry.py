@@ -333,10 +333,6 @@ def initialize_model(
             )
             od_config.vae_use_tiling = True
 
-        # Replace VAE GroupNorm with AITER GroupNorm on ROCm
-        if hasattr(model, "vae") and current_omni_platform.is_rocm():
-            current_omni_platform.replace_vae_groupnorm_with_aiter(model.vae)
-
         # Configure VAE memory optimization settings from config
         if hasattr(model, "vae") and hasattr(model.vae, "use_slicing"):
             model.vae.use_slicing = od_config.vae_use_slicing

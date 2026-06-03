@@ -7,8 +7,8 @@ Architecture mirrors mxfp8_config.py:
   MXFPLinearMethodBase                    – platform-agnostic skeleton (imported from mxfp8_config)
     NPUMxfp4LinearMethod                  – NPU single-scale offline (W4A4 MXFP4)
       NPUMxfp4OnlineLinearMethod          – NPU single-scale online (BF16 → FP4)
-    ROCmMxfp4LinearMethod                 – ROCm single-scale offline (W4A4 MXFP4)
-      ROCmMxfp4OnlineLinearMethod         – ROCm single-scale online (BF16 → FP4)
+    ROCmMxfp4LinearMethod                 – ROCm base class (AITER quant + shuffle; online-only)
+      ROCmMxfp4OnlineLinearMethod         – ROCm online (BF16 → FP4 via AITER)
     NPUMxfp4DualScaleLinearMethod         – NPU dual-scale offline (W4A4 MXFP4 DualScale)
       NPUMxfp4DualScaleOnlineLinearMethod – NPU dual-scale online (BF16 → FP4)
 
@@ -388,13 +388,14 @@ def _register_rocm_mxfp4_op() -> None:
 class ROCmMxfp4LinearMethod(MXFPLinearMethodBase):
     """ROCm W4A4 MXFP4 linear method using AITER (gemm_a4w4).
 
-    Weight canonical layout after process_weights_after_loading:
-      weight_shuffle : (N, K_packed) – FP4 quantized + shuffled (16x16 layout)
-      weight_scale   : (N, K//32)    – per-group-of-32 scales from AITER
+    Weight buffers after process_weights_after_loading:
+      weight_shuffle : FP4 quantized + shuffled via shuffle_weight(layout=(16,16))
+      weight_scale   : per-group-of-32 scales from AITER per_1x32
 
     Forward path:
       _quantize_activation: pass-through (activation quant is inside the custom op)
-      _quant_matmul: torch.ops.vllm_omni.rocm_mxfp4_gemm (activation quant + gemm)
+      _quant_matmul: torch.ops.vllm_omni.rocm_mxfp4_gemm wraps activation quant
+                     then gemm_a4w4 in one custom op
     """
 
     def __init__(self, quant_config: DiffusionMXFP4Config) -> None:
@@ -461,7 +462,7 @@ class ROCmMxfp4OnlineLinearMethod(_LazyWeightMixin, ROCmMxfp4LinearMethod):
          → MXFPLinearMethodBase → LinearMethodBase
 
       create_weights  : _LazyWeightMixin          (meta device + patched loader)
-      process_weights : ROCmMxfp4LinearMethod      (AITER quant + shuffle)
+      process_weights : ROCmMxfp4OnlineLinearMethod  (meta → materialize, then AITER quant + shuffle)
       apply / ops     : ROCmMxfp4LinearMethod / MXFPLinearMethodBase (shared)
     """
 

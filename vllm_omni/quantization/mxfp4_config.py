@@ -351,7 +351,11 @@ class NPUMxfp4OnlineLinearMethod(_LazyWeightMixin, NPUMxfp4LinearMethod):
 
 
 def _register_rocm_mxfp4_op() -> None:
-    """Register the vllm_omni::rocm_mxfp4_gemm custom op for torch.compile."""
+    """Register the vllm_omni::rocm_mxfp4_gemm custom op for torch.compile.
+
+    Wraps activation quantization + GEMM in a single opaque op so that
+    torch.compile/inductor doesn't try to trace through AITER internals.
+    """
     import aiter
 
     @torch.library.custom_op("vllm_omni::rocm_mxfp4_gemm", mutates_args=())
@@ -392,9 +396,8 @@ class ROCmMxfp4LinearMethod(MXFPLinearMethodBase):
       weight_scale   : (N, K//32)    – per-group-of-32 scales from AITER
 
     Forward path:
-      _quantize_activation: pass-through (returns raw activation)
-      _quant_matmul: torch.ops.vllm_omni.rocm_mxfp4_gemm — fuses activation
-                     quantization (per_1x32) + aiter.gemm_a4w4 in one call
+      _quantize_activation: pass-through (activation quant is inside the custom op)
+      _quant_matmul: torch.ops.vllm_omni.rocm_mxfp4_gemm (activation quant + gemm)
     """
 
     def __init__(self, quant_config: DiffusionMXFP4Config) -> None:
@@ -456,8 +459,8 @@ class ROCmMxfp4LinearMethod(MXFPLinearMethodBase):
         layer._already_called_process_weights_after_loading = True
 
     def _quantize_activation(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        # Activation quantization is handled inside the custom op called by
-        # _quant_matmul, so pass through the raw activation here.
+        # Activation quantization is inside the custom op called by _quant_matmul,
+        # so pass through the raw activation here.
         return x, None
 
     def _quant_matmul(

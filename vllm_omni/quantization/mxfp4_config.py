@@ -160,10 +160,7 @@ class DiffusionMXFP4Config(QuantizationConfig):
                 if "gfx950" not in gcn_arch:
                     raise NotImplementedError(f"MXFP4 on ROCm requires gfx950 (MI355X). Detected: {gcn_arch}")
                 if self.is_checkpoint_mxfp4_serialized:
-                    raise NotImplementedError(
-                        "Pre-quantized MXFP4 checkpoints are not yet supported on ROCm. "
-                        "Use online mode (is_checkpoint_mxfp4_serialized=False)."
-                    )
+                    raise NotImplementedError("Pre-quantized MXFP4 checkpoints are not yet supported on ROCm.")
                 return ROCmMxfp4OnlineLinearMethod(self)
             raise NotImplementedError(
                 "DiffusionMXFP4Config (W4A4 MXFP4) is currently only supported "
@@ -405,36 +402,6 @@ class ROCmMxfp4LinearMethod(MXFPLinearMethodBase):
         self.out_dtype = torch.get_default_dtype()
         if not hasattr(torch.ops.vllm_omni, "rocm_mxfp4_gemm"):
             _register_rocm_mxfp4_op()
-
-    def create_weights(
-        self,
-        layer: torch.nn.Module,
-        input_size_per_partition: int,
-        output_partition_sizes: list[int],
-        input_size: int,
-        output_size: int,
-        params_dtype: torch.dtype,
-        **extra_weight_attrs,
-    ) -> None:
-        output_size_per_partition = sum(output_partition_sizes)
-        weight_loader = extra_weight_attrs.get("weight_loader")
-
-        layer.logical_widths = output_partition_sizes
-        layer.input_size_per_partition = input_size_per_partition
-        layer.output_size_per_partition = output_size_per_partition
-        layer.orig_dtype = params_dtype
-        layer.weight_block_size = None
-
-        # BF16 placeholder; quantized to FP4 in process_weights_after_loading.
-        layer.register_parameter(
-            "weight",
-            ModelWeightParameter(
-                data=torch.empty(output_size_per_partition, input_size_per_partition, dtype=params_dtype),
-                input_dim=1,
-                output_dim=0,
-                weight_loader=weight_loader,
-            ),
-        )
 
     def process_weights_after_loading(self, layer: Module) -> None:
         if getattr(layer, "_already_called_process_weights_after_loading", False):

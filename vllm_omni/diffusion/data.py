@@ -186,7 +186,7 @@ class DiffusionParallelConfig:
       sequence shapes across the ring group.
     """
 
-    combine_qkv_a2a: bool = False
+    combine_qkv_a2a: bool = True
     """Fuse Q/K/V into a single 5D tensor for Ulysses all-to-all communication.
 
     When enabled, models that set ``combine_qkv_a2a=True`` in their

@@ -296,7 +296,7 @@ class DiffusionParallelConfig:
     ulysses_a2a_permute: bool = False
     """Use fused permute-free all-to-all for eligible strict Ulysses exchanges."""
 
-    combine_qkv_a2a: bool = False
+    combine_qkv_a2a: bool = True
     """Fuse Q/K/V into a single 5D tensor for Ulysses all-to-all communication.
 
     When enabled, models that set ``combine_qkv_a2a=True`` in their

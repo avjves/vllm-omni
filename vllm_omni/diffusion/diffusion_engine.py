@@ -705,6 +705,13 @@ class DiffusionEngine:
     def _dummy_run(self):
         """A dummy run to warm up the model."""
         num_inference_steps = 1
+        # When a hybrid attention schedule is configured, run enough warmup
+        # steps that both the high- and low-precision backends are exercised
+        # (and thus compiled). Need at least one middle step, i.e. one step
+        # not covered by first_n/last_n: first_n + last_n + 1.
+        schedule = getattr(self.od_config, "hybrid_attention_schedule", None)
+        if schedule is not None:
+            num_inference_steps = max(num_inference_steps, schedule.first_n + schedule.last_n + 1)
         height = 512
         width = 512
         prompt: OmniTextPrompt = {"prompt": "dummy run"}

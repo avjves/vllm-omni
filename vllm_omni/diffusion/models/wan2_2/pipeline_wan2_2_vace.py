@@ -204,7 +204,7 @@ class Wan22VACEPipeline(Wan22Pipeline, SupportImageInput):
         with self.progress_bar(total=len(timesteps)) as pbar:
             for step_idx, t in enumerate(timesteps):
                 self._current_timestep = t
-                set_forward_context_denoise_step_idx(step_idx)
+                set_forward_context_denoise_step_idx(step_idx, total_steps=len(timesteps))
 
                 latent_model_input = latents.to(dtype)
                 timestep = t.expand(latents.shape[0])

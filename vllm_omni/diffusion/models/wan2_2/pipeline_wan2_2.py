@@ -448,7 +448,7 @@ class Wan22Pipeline(
         with self.progress_bar(total=len(timesteps)) as pbar:
             for step_idx, t in enumerate(timesteps):
                 self._current_timestep = t
-                set_forward_context_denoise_step_idx(step_idx)
+                set_forward_context_denoise_step_idx(step_idx, total_steps=len(timesteps))
 
                 # Select model based on timestep and boundary_ratio
                 # High noise stage (t >= boundary_timestep): use transformer

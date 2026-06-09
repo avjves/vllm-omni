@@ -15,11 +15,12 @@ from vllm.logger import init_logger
 from vllm.model_executor.models.utils import extract_layer_index
 
 from vllm_omni.diffusion.attention.backends.abstract import AttentionMetadata
+from vllm_omni.diffusion.attention.backends.hybrid import HybridAttentionImpl
 from vllm_omni.diffusion.attention.backends.sdpa import SDPABackend
 from vllm_omni.diffusion.attention.parallel import build_parallel_attention_strategy
 from vllm_omni.diffusion.attention.parallel.base import NoParallelAttention
 from vllm_omni.diffusion.attention.parallel.ring import RingParallelAttention
-from vllm_omni.diffusion.attention.selector import get_attn_backend_for_role
+from vllm_omni.diffusion.attention.selector import get_attn_backend_for_role, get_backend_cls_by_name
 from vllm_omni.diffusion.config import get_current_diffusion_config_or_none
 from vllm_omni.diffusion.distributed.parallel_state import get_sp_group
 from vllm_omni.diffusion.forward_context import get_forward_context, is_forward_context_available
@@ -61,6 +62,9 @@ class Attention(nn.Module):
         # perf for this layer (e.g. Wan2.2 cross-attn has short sequences and
         # block-FP8 quant offers no win). Default False = follow global config.
         disable_kv_quant: bool = False,
+        # Opt-out for the per-step hybrid attention schedule at this layer.
+        # Default False = follow global config when a schedule is set.
+        disable_hybrid: bool = False,
     ):
         super().__init__()
 
@@ -111,6 +115,26 @@ class Attention(nn.Module):
             qkv_layout=qkv_layout,
         )
 
+        # Per-step hybrid attention schedule: replace self.attention with a
+        # composite impl that switches backend per denoise step (activation is
+        # broadcast in eager code; see backends/hybrid.py).
+        hybrid_schedule = getattr(config, "hybrid_attention_schedule", None) if config is not None else None
+        if hybrid_schedule is not None and not disable_hybrid:
+            if config is not None and config.parallel_config.ring_degree > 1:
+                logger.warning_once(
+                    "Hybrid attention schedule is not applied on the ring-attention path "
+                    "(ring_degree > 1); the role-resolved backend is used instead."
+                )
+            self.attention = self._build_hybrid_impl(
+                hybrid_schedule,
+                num_heads=num_heads,
+                head_size=head_size,
+                softmax_scale=softmax_scale,
+                causal=causal,
+                num_kv_heads=num_kv_heads,
+                qkv_layout=qkv_layout,
+            )
+
         self.softmax_scale = softmax_scale
         self.scatter_idx = scatter_idx
         self.gather_idx = gather_idx
@@ -152,6 +176,32 @@ class Attention(nn.Module):
         # Per-layer opt-out from KV-cache quantization (set by model author).
         self._disable_kv_quant: bool = disable_kv_quant
         self._init_kv_cache_quantization(config)
+
+    def _build_hybrid_impl(
+        self,
+        hybrid_schedule,
+        *,
+        num_heads: int,
+        head_size: int,
+        softmax_scale: float,
+        causal: bool,
+        num_kv_heads: int | None,
+        qkv_layout: str | None,
+    ) -> HybridAttentionImpl:
+        """Instantiate one sub-impl per backend in the schedule and wrap them."""
+        impls = {}
+        for backend_name in hybrid_schedule.distinct_backends():
+            backend_cls = get_backend_cls_by_name(backend_name, head_size)
+            impls[backend_name] = backend_cls.get_impl_cls()(
+                num_heads=num_heads,
+                head_size=head_size,
+                softmax_scale=softmax_scale,
+                causal=causal,
+                num_kv_heads=num_kv_heads,
+                qkv_layout=qkv_layout,
+                backend_kwargs=None,
+            )
+        return HybridAttentionImpl(impls, default_backend=hybrid_schedule.high_backend)
 
     def _get_active_parallel_strategy(self):
         """Get the parallel strategy based on current SP active state.

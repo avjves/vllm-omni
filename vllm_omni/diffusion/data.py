@@ -604,6 +604,12 @@ class OmniDiffusionConfig:
     diffusion_kv_cache_skip_step_indices: set[int] | None = None
     diffusion_kv_cache_skip_layer_indices: set[int] | None = None
 
+    # Per-step hybrid attention schedule: high precision backend at the first/last
+    # N denoising steps, low precision in the middle. Format:
+    # "<HIGH>:<LOW>:<first_n>:<last_n>", e.g. "FLASH_ATTN:TORCH_SDPA:5:5".
+    # None disables the feature. Parsed into hybrid_attention_schedule below.
+    diffusion_hybrid_attention_schedule: str | None = None
+
     # Diffusion pipeline Profiling config
     enable_diffusion_pipeline_profiler: bool = False
 
@@ -771,6 +777,11 @@ class OmniDiffusionConfig:
         self.diffusion_attention_config = build_attention_config(self.diffusion_attention_config)
         self.diffusion_kv_cache_skip_step_indices = parse_kv_cache_skip_selector(self.diffusion_kv_cache_skip_steps)
         self.diffusion_kv_cache_skip_layer_indices = parse_kv_cache_skip_selector(self.diffusion_kv_cache_skip_layers)
+
+        # Parsed hybrid attention schedule (None when the feature is disabled).
+        from vllm_omni.diffusion.attention.schedule import parse_hybrid_attention_schedule
+
+        self.hybrid_attention_schedule = parse_hybrid_attention_schedule(self.diffusion_hybrid_attention_schedule)
 
         if self.max_cpu_loras is None:
             self.max_cpu_loras = 1

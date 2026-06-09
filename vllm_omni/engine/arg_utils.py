@@ -454,6 +454,7 @@ class OrchestratorArgs:
     diffusion_kv_cache_dtype: str | None = None
     diffusion_kv_cache_skip_steps: str | None = None
     diffusion_kv_cache_skip_layers: str | None = None
+    diffusion_hybrid_attention_schedule: str | None = None
     cfg_parallel_size: int = 1
     vae_patch_parallel_size: int = 1
     default_sampling_params: str | None = None

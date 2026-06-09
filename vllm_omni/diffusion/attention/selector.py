@@ -67,6 +67,16 @@ def _cached_get_backend_cls(
     return _load_backend_cls(backend_cls_path)
 
 
+def get_backend_cls_by_name(backend_name: str, head_size: int) -> type[AttentionBackend]:
+    """Resolve a concrete backend class by its canonical registry name.
+
+    Runs the same platform validation (head-size support, package availability)
+    as role-based resolution. Used to build the sub-impls of a hybrid attention
+    schedule.
+    """
+    return _cached_get_backend_cls(backend_name, head_size)
+
+
 @cache
 def _log_backend_resolution(
     role: str,

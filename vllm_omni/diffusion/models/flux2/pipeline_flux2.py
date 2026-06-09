@@ -28,6 +28,7 @@ from vllm_omni.diffusion.data import DiffusionOutput, OmniDiffusionConfig
 from vllm_omni.diffusion.distributed.cfg_parallel import CFGParallelMixin
 from vllm_omni.diffusion.distributed.parallel_state import get_classifier_free_guidance_world_size
 from vllm_omni.diffusion.distributed.utils import get_local_device
+from vllm_omni.diffusion.forward_context import set_forward_context_denoise_step_idx
 from vllm_omni.diffusion.model_loader.diffusers_loader import DiffusersPipelineLoader
 from vllm_omni.diffusion.models.flux2 import Flux2Transformer2DModel
 from vllm_omni.diffusion.models.interface import SupportImageInput
@@ -1061,6 +1062,7 @@ class Flux2Pipeline(nn.Module, CFGParallelMixin, SupportImageInput, ProgressBarM
                     continue
 
                 self._current_timestep = t
+                set_forward_context_denoise_step_idx(i, total_steps=len(timesteps))
                 timestep = t.expand(latents.shape[0]).to(latents.dtype)
 
                 latent_model_input = latents.to(self.transformer.dtype)

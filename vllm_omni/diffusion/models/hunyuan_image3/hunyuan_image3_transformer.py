@@ -3066,7 +3066,7 @@ class HunyuanImage3Text2ImagePipeline(DiffusionPipeline):
 
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
-                set_forward_context_denoise_step_idx(i)
+                set_forward_context_denoise_step_idx(i, total_steps=len(timesteps))
                 if cfg_parallel_ready:
                     # CFG parallel: each rank forwards its own branch (no batch doubling)
                     latent_model_input = latents

@@ -348,7 +348,7 @@ class Wan22I2VPipeline(
                     current_model = self.transformer_2
                     current_guidance_scale = guidance_high
 
-                set_forward_context_denoise_step_idx(step_idx)
+                set_forward_context_denoise_step_idx(step_idx, total_steps=len(timesteps))
 
                 # Prepare latent input
                 if self.expand_timesteps:

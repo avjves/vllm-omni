@@ -610,6 +610,15 @@ class OmniServeCommand(CLISubcommand):
             help="Diffusion KV-cache quantization skip-layer selector, e.g. '0,1,4-8'.",
         )
         omni_config_group.add_argument(
+            "--diffusion-hybrid-attention-schedule",
+            type=str,
+            default=None,
+            help="Per-step hybrid attention schedule '<HIGH>:<LOW>:<first_n>:<last_n>' "
+            "(e.g. 'flash_attn:torch_sdpa:5:5'). Uses the high-precision backend for the "
+            "first_n and last_n denoise steps and the low-precision backend in between. "
+            "Backend names are canonical registry names (case-insensitive).",
+        )
+        omni_config_group.add_argument(
             "--cfg-parallel-size",
             type=int,
             default=1,

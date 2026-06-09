@@ -1969,6 +1969,7 @@ class AsyncOmniEngine:
             "diffusion_kv_cache_dtype": kwargs.get("diffusion_kv_cache_dtype", None),
             "diffusion_kv_cache_skip_steps": kwargs.get("diffusion_kv_cache_skip_steps", None),
             "diffusion_kv_cache_skip_layers": kwargs.get("diffusion_kv_cache_skip_layers", None),
+            "diffusion_hybrid_attention_schedule": kwargs.get("diffusion_hybrid_attention_schedule", None),
             **({"diffusion_attention_config": attention_config} if attention_config is not None else {}),
             "force_cutlass_fp8": bool(kwargs.get("force_cutlass_fp8", False)),
             "enable_diffusion_pipeline_profiler": kwargs.get("enable_diffusion_pipeline_profiler", False),
@@ -2172,6 +2173,13 @@ class AsyncOmniEngine:
                         or cfg.engine_args.diffusion_kv_cache_skip_layers is None
                     ):
                         cfg.engine_args.diffusion_kv_cache_skip_layers = diffusion_kv_cache_skip_layers
+                diffusion_hybrid_attention_schedule = kwargs.get("diffusion_hybrid_attention_schedule")
+                if diffusion_hybrid_attention_schedule is not None:
+                    if (
+                        not hasattr(cfg.engine_args, "diffusion_hybrid_attention_schedule")
+                        or cfg.engine_args.diffusion_hybrid_attention_schedule is None
+                    ):
+                        cfg.engine_args.diffusion_hybrid_attention_schedule = diffusion_hybrid_attention_schedule
             except Exception as e:
                 logger.warning("Failed to inject LoRA config for stage: %s", e)
 

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import vllm.ir
 from vllm.config import VllmConfig
+from vllm.logger import init_logger
 
 from vllm_omni.diffusion.attention.backends.abstract import (
     AttentionMetadata,
@@ -14,6 +15,8 @@ from vllm_omni.diffusion.data import OmniDiffusionConfig
 
 if TYPE_CHECKING:
     import torch
+
+logger = init_logger(__name__)
 
 
 @dataclass
@@ -27,6 +30,9 @@ class ForwardContext:
     attn_metadata: dict[str, AttentionMetadata] | list[dict[str, AttentionMetadata]] | None = None
     split_text_embed_in_sp: bool = False
     denoise_step_idx: int | None = None
+    # Total number of denoising steps for the current request. Used to resolve
+    # per-step schedules (e.g. hybrid attention's last-N high-precision steps).
+    total_denoise_steps: int | None = None
     # Per-request reference latent for img2img DiT models (e.g. Ming)
     ref_latent: torch.Tensor | None = None
     # whether to split the text embed in sequence parallel, if True, the text embed will be split in sequence parallel
@@ -173,10 +179,56 @@ def set_forward_context(
                 yield
 
 
-def set_forward_context_denoise_step_idx(step_idx: int | None) -> None:
-    """Set the current diffusion denoise step on the active ForwardContext."""
+def set_forward_context_denoise_step_idx(step_idx: int | None, total_steps: int | None = None) -> None:
+    """Set the current diffusion denoise step on the active ForwardContext.
+
+    When a hybrid attention schedule is configured, this also activates the
+    backend for ``step_idx`` on all hybrid attention impls. This runs in eager
+    code (before the compiled transformer blocks execute for the step), so the
+    per-step backend switch never causes a graph break.
+
+    ``total_steps`` should be passed by the denoise loop (e.g. ``len(timesteps)``)
+    so the schedule can resolve its last-N high-precision steps. When omitted,
+    the value previously stored on the context is reused.
+    """
+    if _forward_context is None:
+        return
+    _forward_context.denoise_step_idx = step_idx
+    if total_steps is not None:
+        _forward_context.total_denoise_steps = total_steps
+
+    _maybe_activate_hybrid_attention(step_idx, _forward_context.total_denoise_steps)
+
+
+def set_forward_context_total_denoise_steps(total_steps: int | None) -> None:
+    """Set the total denoise step count on the active ForwardContext."""
     if _forward_context is not None:
-        _forward_context.denoise_step_idx = step_idx
+        _forward_context.total_denoise_steps = total_steps
+
+
+def _maybe_activate_hybrid_attention(step_idx: int | None, total_steps: int | None) -> None:
+    if step_idx is None or _forward_context is None:
+        return
+    config = _forward_context.omni_diffusion_config
+    schedule = getattr(config, "hybrid_attention_schedule", None) if config is not None else None
+    if schedule is None:
+        return
+    if total_steps is None:
+        # Without the total we cannot resolve last-N steps; keep the high-precision
+        # default that hybrid impls start on.
+        logger.warning_once(
+            "[hybrid-attn] denoise step %s reached but total_steps is unknown; "
+            "staying on high-precision default backend %r. The denoise loop must pass "
+            "total_steps to set_forward_context_denoise_step_idx() for the schedule to engage.",
+            step_idx,
+            schedule.high_backend,
+        )
+        return
+    # Local import to avoid a module-level import cycle.
+    from vllm_omni.diffusion.attention.backends.hybrid import set_active_backend_for_all
+
+    backend = schedule.backend_for_step(step_idx, total_steps)
+    set_active_backend_for_all(backend)
 
 
 def set_forward_context_ref_latent(ref_latent: torch.Tensor | None) -> None:

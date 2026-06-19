@@ -9,17 +9,25 @@ from vllm_omni.diffusion.attention.backends.abstract import (
     AttentionImpl,
     AttentionMetadata,
 )
+from vllm_omni.platforms import current_omni_platform
 
 logger = init_logger(__name__)
 
-try:
-    from sageattention import sageattn
-except ImportError:
-    logger.warning(
-        "SageAttentionBackend is not available. You may install sage-attention"
-        " by pip install git+https://github.com/thu-ml/SageAttention.git"
-    )
-    raise ImportError
+if current_omni_platform.is_rocm():
+    try:
+        from aiter.ops.triton.attention.fav3_sage import fav3_sage_wrapper_func
+    except ImportError:
+        logger.warning("AITER Sage Attention backend is not available. Please update AITER version.")
+        pass
+else:
+    try:
+        from sageattention import sageattn
+    except ImportError:
+        logger.warning(
+            "SageAttentionBackend is not available. You may install sage-attention"
+            " by pip install git+https://github.com/thu-ml/SageAttention.git"
+        )
+        raise ImportError
 
 # TODO add sage3 attention backend
 
@@ -71,5 +79,19 @@ class SageAttentionImpl(AttentionImpl):
             tensor_layout="NHD",
             is_causal=self.causal,
             sm_scale=self.softmax_scale,
+        )
+        return output
+
+    def forward_hip(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        attn_metadata: AttentionMetadata = None,
+    ) -> torch.Tensor:
+        output = fav3_sage_wrapper_func(
+            query,
+            key,
+            value,
         )
         return output

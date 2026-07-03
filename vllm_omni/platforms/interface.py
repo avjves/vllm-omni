@@ -162,6 +162,10 @@ class OmniPlatform(Platform):
         raise NotImplementedError
 
     @classmethod
+    def get_device_memory(cls, device: torch.device | None = None) -> tuple[int, int]:
+        raise NotImplementedError
+
+    @classmethod
     def create_autocast_context(
         cls,
         *,
@@ -247,6 +251,10 @@ class UnspecifiedOmniPlatform(OmniPlatform):
     _omni_enum = OmniPlatformEnum.UNSPECIFIED
     _enum = PlatformEnum.UNSPECIFIED
     device_type = "cpu"
+
+    @classmethod
+    def get_torch_device(cls, local_rank: int | None = None) -> torch.device:
+        return torch.device("cpu")
 
     @classmethod
     def get_device_count(cls) -> int:

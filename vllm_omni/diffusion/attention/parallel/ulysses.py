@@ -521,7 +521,7 @@ class UlyssesParallelAttention:
 
             # Check if we can use combined QKV all-to-all (1 collective instead of 3).
             # Model opts in per-forward via AttentionMetadata.combine_qkv_a2a;
-            # global kill switch via DiffusionParallelConfig.combine_qkv_a2a.
+            # global kill switch via DiffusionParallelConfig.enable_combine_qkv_a2a.
             combine_qkv = (
                 attn_metadata is not None
                 and attn_metadata.combine_qkv_a2a
@@ -529,9 +529,22 @@ class UlyssesParallelAttention:
                 and self._scatter_idx == 2
                 and self._gather_idx == 1
             )
+            # A model opted in but the preconditions aren't met (e.g. mismatched
+            # Q/K/V shapes from GQA, or non-default scatter/gather indices).
+            if attn_metadata is not None and attn_metadata.combine_qkv_a2a and not combine_qkv:
+                logger.warning_once(
+                    "combine_qkv_a2a was requested but disabled: it requires matching "
+                    "Q/K/V shapes and scatter_idx=2/gather_idx=1 (got shapes %s/%s/%s, "
+                    "scatter_idx=%d, gather_idx=%d). Falling back to separate all-to-all calls.",
+                    tuple(query.shape),
+                    tuple(key.shape),
+                    tuple(value.shape),
+                    self._scatter_idx,
+                    self._gather_idx,
+                )
             if combine_qkv and is_forward_context_available():
                 cfg = get_forward_context().omni_diffusion_config
-                if cfg is not None and not cfg.parallel_config.combine_qkv_a2a:
+                if cfg is not None and not cfg.parallel_config.enable_combine_qkv_a2a:
                     combine_qkv = False
 
             # (bs, seq_len/P, head_cnt, head_size) -> (bs, seq_len, head_cnt/P, head_size)

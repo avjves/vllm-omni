@@ -186,14 +186,16 @@ class DiffusionParallelConfig:
       sequence shapes across the ring group.
     """
 
-    combine_qkv_a2a: bool = True
-    """Fuse Q/K/V into a single 5D tensor for Ulysses all-to-all communication.
+    enable_combine_qkv_a2a: bool = True
+    """Global override for the combined QKV all-to-all optimization.
 
-    When enabled, models that set ``combine_qkv_a2a=True`` in their
-    ``AttentionMetadata`` will perform one all-to-all collective instead of
+    Acts as a kill switch: models opt in per-forward by setting
+    ``combine_qkv_a2a=True`` on their ``AttentionMetadata``, which fuses Q/K/V
+    into a single 5D tensor and performs one all-to-all collective instead of
     three during the Ulysses pre-attention reshard, reducing NCCL overhead.
     Only effective in strict mode when Q/K/V shapes match (i.e. no GQA).
-    Set to False to disable the optimization globally.
+    Set to False to disable the optimization globally, even for models that
+    opt in.
     """
 
     cfg_parallel_size: int = 1

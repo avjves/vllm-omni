@@ -259,6 +259,7 @@ class _ParallelConfigEngineOverrides(TypedDict, total=False):
     allgather_degree: int
     ulysses_mode: str
     ulysses_a2a_permute: bool
+    enable_combine_qkv_a2a: bool
     cfg_parallel_size: int
     vae_patch_parallel_size: int
     vae_parallel_mode: str

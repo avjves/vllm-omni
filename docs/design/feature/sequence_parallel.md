@@ -93,17 +93,19 @@ In strict Ulysses mode, `pre_attention` reshards Q, K and V with **three separat
 
 1. **Two-tier control.**
     - Per-model opt-in: a model sets `combine_qkv_a2a=True` on the `AttentionMetadata` it passes to attention.
-    - Global override: `DiffusionParallelConfig.combine_qkv_a2a` (default `True`) acts as a kill switch. Setting it to `False` disables the fused path everywhere even if models opt in, without touching model code.
+    - Global override: `DiffusionParallelConfig.enable_combine_qkv_a2a` (default `True`) acts as a kill switch. Setting it to `False` disables the fused path everywhere even if models opt in, without touching model code.
 
-2. **Guarded automatically.** The fused path only activates in strict mode when `query.shape == key.shape == value.shape` and `scatter_idx==2 / gather_idx==1`. If a model opts in but these preconditions fail (e.g. GQA/MQA with unequal head counts), it silently falls back to three separate calls and logs a one-time warning.
+2. **Guarded automatically.** The fused path only activates in strict mode when `query.shape == key.shape == value.shape` and `scatter_idx==2 / gather_idx==1`. If a model opts in but these preconditions fail (e.g. GQA/MQA with unequal head counts), it falls back to three separate calls and emits a one-time warning.
 
 3. **Not applied to UAA.** `advanced_uaa` uses `_ulysses_all_to_all_any_qkv` with per-rank variable split sizes and optional head padding to support uneven shapes. That path is incompatible with a single fixed-shape stacked collective, so combined QKV is strict-mode only.
+
+4. **`ulysses_a2a_permute` takes precedence.** The two optimizations target different costs — combined QKV cuts the *number* of collectives (3 → 1) while leaving the permutes intact, whereas `ulysses_a2a_permute` folds the permute into the data movement via the symmetric-memory kernel but still issues three collectives. They are mutually exclusive at the dispatch site: when `ulysses_a2a_permute` is enabled and eligible, it wins and combined QKV does not apply.
 
 ### Trade-off and Coverage
 
 Fusing trades communication launches for a transient `(B, S/P, 3, H, D)` stacking allocation. This is a net win for image models but not for long-sequence video models, where the extra memory/copy cost cancels the savings. Enable it per-model only after validating both output parity and a real speedup.
 
-Currently opted in: **FLUX.2**, **Qwen-Image**, **Qwen-Image-Edit** (see `vllm_omni/diffusion/models/flux2/flux2_transformer.py` and `.../qwen_image/qwen_image_transformer.py`). Equivalence of the fused vs. separate paths is covered by `test_combined_qkv_equivalence` in `tests/diffusion/distributed/test_comm.py`.
+Currently opted in: **FLUX.2**, **Qwen-Image**, **Qwen-Image-Edit** (see `vllm_omni/diffusion/models/flux2/flux2_transformer.py` and `.../qwen_image/qwen_image_transformer.py`). Equivalence of the fused vs. separate paths is covered by `test_fused_qkv_all_to_all_matches_three_4d_exchanges_cpu` (CPU, exact) and `test_combined_qkv_equivalence_parity` (GPU, fp16/bf16) in `tests/diffusion/distributed/test_comm.py`.
 
 ---
 

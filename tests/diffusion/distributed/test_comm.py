@@ -449,24 +449,6 @@ def test_ring_p2p(world_size: int):
     )
 
 
-@pytest.mark.core_model
-@pytest.mark.diffusion
-@pytest.mark.cpu
-@pytest.mark.parametrize("world_size", [2, 4])
-def test_combined_qkv_equivalence(world_size: int):
-    _require_heads_divisible(8, world_size)
-    _spawn_combined_qkv_equivalence(
-        world_size=world_size,
-        dtype=torch.float32,
-        batch_size=2,
-        seq_len_per_rank=8,
-        num_heads=8,
-        head_size=32,
-        device_kind="cpu",
-        master_port=29614,
-    )
-
-
 # ---------------------------------------------------------------------------
 # Nightly: same checks on real multi-GPU NCCL collectives
 # ---------------------------------------------------------------------------

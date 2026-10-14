@@ -147,6 +147,7 @@ _PIPELINE_STAGES = [
     "dac_decoder",
     "diffusion",
     "dit",
+    "fish_omni",
     "fish_speech_slow_ar",
     "fused_thinker_talker",
     "gepard",
@@ -183,6 +184,7 @@ _PIPELINE_STAGES = [
     "token2wav",
     "tts",
     "encoder",
+    "yue2",
 ]
 
 _STAGES = [*_PIPELINE_STAGES, None, "vae", "not_a_real_stage"]
